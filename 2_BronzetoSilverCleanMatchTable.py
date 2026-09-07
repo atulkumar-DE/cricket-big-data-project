@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "5"
+# ///
 # DBTITLE 1,Importing Libraries
 import json
 from pyspark.sql.functions import *
@@ -23,11 +27,13 @@ print(matches[0] if len(matches)>0 else "No Matches Found")
 silver_rows=[]
 
 for match in matches:
-    teams=match.get("teams",[]),
+    # Fixed: removed trailing comma to make teams a list, not a tuple
+    teams=match.get("teams",[])
     score=match.get("score",[])
 
-    team_1=teams[0] if len(score)>0 else None
-    team_2=teams[1] if len(score)>1 else None
+    # Fixed: check len(teams) instead of len(score)
+    team_1=teams[0] if len(teams)>0 else None
+    team_2=teams[1] if len(teams)>1 else None
 
     score_1=None
     score_2=None
@@ -42,12 +48,12 @@ for match in matches:
 
     silver_rows.append(
         {
-            "match_id":match.get("match_id"),
-            "match_name":match.get("match_name"),
-            "match_type":match.get("match_type"),
+            "match_id":match.get("id"),  # Fixed: 'id' not 'match_id'
+            "match_name":match.get("name"),  # Fixed: 'name' not 'match_name'
+            "match_type":match.get("matchType"),
             "status":match.get("status"),
             "venue":match.get("venue"),
-            "match_date":match.get("date"),
+            "match_date":match.get("startDate"),  # Fixed: 'startDate' not 'date'
             "date_time_gmt":match.get("dateTimeGMT"),
             "team_1":team_1,
             "team_2":team_2,
@@ -79,7 +85,7 @@ silver_schema=StructType([
     StructField("match_ended", StringType(), True)
 ])
 silver_df=spark.createDataFrame(silver_rows,silver_schema)\
-    .withColumn("match_date",to_date(col("match_date")))\
+    .withColumn("match_date",expr("try_to_date(match_date, 'yyyy-MM-dd')"))\
         .withColumn("loaded_at",current_timestamp())
 
 display(silver_df)
